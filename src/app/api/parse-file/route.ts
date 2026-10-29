@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import JSZip from 'jszip';
 import { parseStringPromise } from 'xml2js';
-import { PDFParse } from 'pdf-parse';
 import mammoth from 'mammoth';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
@@ -81,6 +80,11 @@ async function parsePptx(buffer: Buffer) {
 }
 
 async function parsePdf(buffer: Buffer) {
+  // Loaded only for PDFs, so a PDF library problem can't break other file types.
+  // The worker import must come first: it bundles pdf.js's worker so it's found on serverless hosts like Vercel.
+  await import('pdf-parse/worker');
+  const { PDFParse } = await import('pdf-parse');
+
   const parser = new PDFParse({ data: buffer });
   try {
     const result = await parser.getText();
