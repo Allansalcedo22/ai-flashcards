@@ -6,7 +6,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'AI Study Suite',
-  description: 'Generate flashcards, quizzes, and summaries with AI',
+  description: 'Turn lecture notes, PDFs, Word docs, and slides into in-depth flashcards, practice quizzes, and study guides with AI',
 };
 
 export default function RootLayout({

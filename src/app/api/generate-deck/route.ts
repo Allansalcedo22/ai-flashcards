@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// In-depth generations can take up to a minute; give hosts room so they don't cut it off
+export const maxDuration = 120;
+
+// Each generation costs OpenAI credits, so cap how many one visitor can run per hour
+const GENERATIONS_PER_HOUR = 10;
+// Matches the page's limit (~100k tokens) so oversized requests are rejected before reaching OpenAI
+const MAX_TEXT_CHARS = 400_000;
 
 // Shared teaching rules so every mode aims for real understanding, not surface recall
 const TEACHING_GUIDELINES = `Teaching guidelines:
@@ -17,8 +26,23 @@ export async function POST(req: Request) {
   try {
     const { title, text, mode = 'flashcards', questionCount = 10 } = await req.json();
 
-    if (!text) {
+    if (!text || typeof text !== 'string') {
       return NextResponse.json({ error: 'Source text is required.' }, { status: 400 });
+    }
+
+    if (text.length > MAX_TEXT_CHARS) {
+      return NextResponse.json(
+        { error: 'That\'s too much material for one study set. Try fewer or smaller documents.' },
+        { status: 413 }
+      );
+    }
+
+    const limit = checkRateLimit(`generate:${getClientIp(req)}`, GENERATIONS_PER_HOUR, 60 * 60 * 1000);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: `You've hit the limit of ${GENERATIONS_PER_HOUR} generations per hour. Please try again in ${limit.retryAfterMinutes} minutes.` },
+        { status: 429 }
+      );
     }
 
     let systemPrompt = '';
@@ -129,12 +153,21 @@ Return ONLY a JSON object with this exact structure:
       max_tokens: 16000,
     });
 
+    // A cut-off answer is invalid JSON; give a useful message instead of a parse error
+    if (response.choices[0].finish_reason === 'length') {
+      return NextResponse.json(
+        { error: 'The material was too long to finish in one go. Try fewer documents, or 10 questions instead of 25.' },
+        { status: 422 }
+      );
+    }
+
     const result = JSON.parse(response.choices[0].message.content || '{}');
     return NextResponse.json({ success: true, mode, data: result });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    // Log details for you, but don't show OpenAI internals to visitors
     console.error('Generation Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to generate study material.' },
+      { error: 'Failed to generate study material. Please try again.' },
       { status: 500 }
     );
   }

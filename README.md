@@ -1,14 +1,15 @@
 # AI Flashcards & Study Assistant
 
-An AI-powered study platform built with Next.js 16, OpenAI, and Supabase. Upload lecture notes, PDFs, or PowerPoint presentations to automatically generate in-depth flashcards, practice quizzes, and full study guides that teach the subject, not just summarize it.
+An AI-powered study platform built with Next.js 16, OpenAI, and Supabase. Upload lecture notes, PDFs, Word documents, or PowerPoint presentations to automatically generate in-depth flashcards, practice quizzes, and full study guides that teach the subject, not just summarize it.
 
 ## 🚀 Features
 
-- 📄 **Multi-Format Document Parsing:** Upload `.pdf`, `.pptx`, or `.txt` files directly to extract text.
+- 📄 **Multi-Format Document Parsing:** Upload several `.pdf`, `.docx`, `.pptx` (including speaker notes), `.txt`, or `.md` files at once and combine them into one study set.
 - 🎴 **Interactive Flashcards:** Flip through 15-25 cards with hints, plus a deeper "why it works" explanation and a real-world example on every card.
 - 🧪 **Custom Practice Quizzes:** Generate 10-question or 25-question quizzes mixing recall, application, and analysis questions, with a mini-lesson for each answer, a breakdown of why every option is right or wrong, and a list of concepts to review.
 - 📝 **In-Depth Study Guides:** Get learning objectives, multi-paragraph explanations of each concept with examples and common misconceptions, key terms, how the ideas connect, and self-check questions with model answers.
-- 💾 **Database Saving:** Save generated decks, quizzes, and study guides to Supabase for later study sessions.
+- 💾 **Database Saving (optional):** Save generated decks, quizzes, and study guides to Supabase. Off by default; see step 4.
+- 🛡️ **Abuse Protection:** Per-visitor rate limits on uploads and AI generations to protect your OpenAI credits.
 
 ## 🛠️ Tech Stack
 
@@ -17,7 +18,7 @@ An AI-powered study platform built with Next.js 16, OpenAI, and Supabase. Upload
 - **Styling:** Tailwind CSS & Lucide React Icons
 - **AI Engine:** OpenAI API (`gpt-4o-mini`)
 - **Database:** Supabase
-- **File Parsing:** `pdf-parse-fork`, `jszip`, `xml2js`
+- **File Parsing:** `pdf-parse`, `mammoth`, `jszip`, `xml2js`
 
 ## 🏁 Getting Started
 
@@ -44,7 +45,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 OPENAI_API_KEY=your-openai-api-key
 ```
 
-### 4. Create the Supabase table
+### 4. (Optional) Turn on saving and create the Supabase table
+Saving is off by default because saved sets can't be reopened in the app yet and the table is shared by everyone. To turn it on, add this to `.env.local`:
+
+```bash
+NEXT_PUBLIC_ENABLE_SAVE=true
+```
+
 Every flashcard deck, quiz, and study guide is saved as one row in a `study_sets` table. The generated content is stored as JSON in the `content` column, so new fields are saved automatically.
 
 Run this in the Supabase SQL Editor:
@@ -84,12 +91,12 @@ src/
 ├── app/
 │   ├── api/
 │   │   ├── generate-deck/route.ts   # Sends text to OpenAI, returns flashcards / quiz / study guide
-│   │   ├── parse-file/route.ts      # Extracts text from uploaded PDF, PPTX, or TXT files
-│   │   └── save-deck/route.ts       # Alternative save endpoint (not used by the current UI)
+│   │   └── parse-file/route.ts      # Extracts text from PDF, DOCX, PPTX (with speaker notes), TXT, and MD files
 │   ├── layout.tsx
 │   ├── page.tsx                     # Main UI: upload, flashcards, quiz, study guide views; saves to study_sets
 │   └── globals.css
 └── lib/
+    ├── rateLimit.ts                 # Per-visitor request limits
     └── supabase.ts                  # Supabase client
 ```
 
@@ -101,3 +108,10 @@ src/
 | `npm run build` | Build for production         |
 | `npm run start` | Run the production build     |
 | `npm run lint`  | Run ESLint                   |
+
+## 🚀 Before Going Live
+
+- **Set an OpenAI spending limit** in your OpenAI dashboard (Settings → Limits). This is your real safety net against unexpected bills.
+- **Rate limits:** each visitor can run 10 AI generations and 60 file uploads per hour. Limits are kept in server memory, so they're exact on a single always-on server (like Render) but per-instance on serverless hosts (like Vercel).
+- **Environment variables:** add `OPENAI_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in your host's settings. Never commit `.env.local`.
+- **Known limitations:** scanned or image-only PDFs and photos of handwritten notes aren't supported yet, and old `.doc`/`.ppt` files need to be re-saved as `.docx`/`.pptx` or exported as PDF.

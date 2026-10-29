@@ -74,6 +74,10 @@ function Paragraphs({ text, className = '' }: { text?: string; className?: strin
   );
 }
 
+// Saving is off until the app has user accounts (saved sets can't be reopened yet and the table is shared).
+// Set NEXT_PUBLIC_ENABLE_SAVE=true in .env.local to turn the Save buttons back on.
+const SAVE_ENABLED = process.env.NEXT_PUBLIC_ENABLE_SAVE === 'true';
+
 // Each file is uploaded in its own request, so keep it under typical hosting body limits (e.g. Vercel's 4.5 MB)
 const MAX_FILE_SIZE_MB = 4;
 // gpt-4o-mini reads ~128k tokens; ~4 characters per token leaves room for the prompt and the answer
@@ -145,8 +149,8 @@ export default function Home() {
         // Label each document so the AI knows where one ends and the next begins
         parsedSections.push(`=== Document: ${file.name} ===\n${data.text.trim()}`);
         parsedNames.push(file.name);
-      } catch (err: any) {
-        failed.push(`${file.name} (${err.message || 'could not be read'})`);
+      } catch (err: unknown) {
+        failed.push(`${file.name} (${err instanceof Error ? err.message : 'could not be read'})`);
       }
     }
 
@@ -214,8 +218,8 @@ export default function Home() {
         setSummaryData(result.data);
         setRevealedAnswers({});
       }
-    } catch (err: any) {
-      alert(err.message || 'An error occurred during generation.');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'An error occurred during generation.');
     } finally {
       setIsGenerating(false);
     }
@@ -238,8 +242,8 @@ export default function Home() {
       if (error) throw error;
 
       setSaveSuccess(true);
-    } catch (err: any) {
-      alert(err.message || 'Failed to save to Supabase.');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to save to Supabase.');
     } finally {
       setIsSaving(false);
     }
@@ -273,7 +277,7 @@ export default function Home() {
           <Sparkles className="w-8 h-8 text-blue-500" /> AI Study Assistant
         </h1>
         <p className="text-slate-400 mt-1">
-          Upload lecture notes, PDFs, or PowerPoints to generate in-depth flashcards, practice quizzes, and full study guides.
+          Upload lecture notes, PDFs, Word docs, or PowerPoints to generate in-depth flashcards, practice quizzes, and full study guides.
         </p>
       </header>
 
@@ -323,7 +327,7 @@ export default function Home() {
         {/* File Upload Section */}
         <div>
           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-            Upload Files (.pdf, .pptx, .txt)
+            Upload Files (.pdf, .docx, .pptx, .txt, .md)
           </label>
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors border border-slate-700">
@@ -331,7 +335,7 @@ export default function Home() {
               <span>{isParsingFile ? parsingProgress || 'Parsing...' : 'Choose Files'}</span>
               <input
                 type="file"
-                accept=".pdf,.pptx,.txt"
+                accept=".pdf,.docx,.pptx,.txt,.md"
                 multiple
                 onChange={handleFileUpload}
                 disabled={isParsingFile}
@@ -437,13 +441,15 @@ export default function Home() {
             <h2 className="text-2xl font-bold text-white">
               Flashcard Deck ({flashcards.length} cards)
             </h2>
-            <button
-              onClick={handleSaveToSupabase}
-              disabled={isSaving}
-              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-700"
-            >
-              <Save className="w-3.5 h-3.5" /> {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Set'}
-            </button>
+            {SAVE_ENABLED && (
+              <button
+                onClick={handleSaveToSupabase}
+                disabled={isSaving}
+                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-700"
+              >
+                <Save className="w-3.5 h-3.5" /> {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Set'}
+              </button>
+            )}
           </div>
 
           <div
@@ -525,13 +531,15 @@ export default function Home() {
             <h2 className="text-2xl font-bold text-white">
               {quizTitle} ({quizQuestions.length} Questions)
             </h2>
-            <button
-              onClick={handleSaveToSupabase}
-              disabled={isSaving}
-              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-700"
-            >
-              <Save className="w-3.5 h-3.5" /> {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Quiz'}
-            </button>
+            {SAVE_ENABLED && (
+              <button
+                onClick={handleSaveToSupabase}
+                disabled={isSaving}
+                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-700"
+              >
+                <Save className="w-3.5 h-3.5" /> {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Quiz'}
+              </button>
+            )}
           </div>
 
           <div className="space-y-6">
@@ -662,13 +670,15 @@ export default function Home() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-white">Study Guide</h2>
-            <button
-              onClick={handleSaveToSupabase}
-              disabled={isSaving}
-              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-700"
-            >
-              <Save className="w-3.5 h-3.5" /> {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Study Guide'}
-            </button>
+            {SAVE_ENABLED && (
+              <button
+                onClick={handleSaveToSupabase}
+                disabled={isSaving}
+                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-700"
+              >
+                <Save className="w-3.5 h-3.5" /> {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Study Guide'}
+              </button>
+            )}
           </div>
 
           {/* Overview & Learning Objectives */}
