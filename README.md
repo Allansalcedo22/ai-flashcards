@@ -1,14 +1,14 @@
 # AI Flashcards & Study Assistant
 
-An AI-powered study platform built with Next.js 16, OpenAI, and Supabase. Upload lecture notes, PDFs, or PowerPoint presentations to automatically generate flashcards, practice quizzes, and high-yield study summaries.
+An AI-powered study platform built with Next.js 16, OpenAI, and Supabase. Upload lecture notes, PDFs, or PowerPoint presentations to automatically generate in-depth flashcards, practice quizzes, and full study guides that teach the subject, not just summarize it.
 
 ## 🚀 Features
 
 - 📄 **Multi-Format Document Parsing:** Upload `.pdf`, `.pptx`, or `.txt` files directly to extract text.
-- 🎴 **Interactive Flashcards:** View generated flashcard decks with flip animations, hints, and navigation controls.
-- 🧪 **Custom Practice Quizzes:** Generate 10-question or 25-question multiple-choice quizzes with instant grading and detailed explanations.
-- 📝 **High-Yield Summaries:** Get concise topic overviews, key takeaways, and key term definitions.
-- 💾 **Database Saving:** Save generated decks, quizzes, and summaries to Supabase for later study sessions.
+- 🎴 **Interactive Flashcards:** Flip through 15-25 cards with hints, plus a deeper "why it works" explanation and a real-world example on every card.
+- 🧪 **Custom Practice Quizzes:** Generate 10-question or 25-question quizzes mixing recall, application, and analysis questions, with a mini-lesson for each answer, a breakdown of why every option is right or wrong, and a list of concepts to review.
+- 📝 **In-Depth Study Guides:** Get learning objectives, multi-paragraph explanations of each concept with examples and common misconceptions, key terms, how the ideas connect, and self-check questions with model answers.
+- 💾 **Database Saving:** Save generated decks, quizzes, and study guides to Supabase for later study sessions.
 
 ## 🛠️ Tech Stack
 
@@ -44,48 +44,31 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 OPENAI_API_KEY=your-openai-api-key
 ```
 
-### 4. Create the Supabase tables
+### 4. Create the Supabase table
+Every flashcard deck, quiz, and study guide is saved as one row in a `study_sets` table. The generated content is stored as JSON in the `content` column, so new fields are saved automatically.
+
 Run this in the Supabase SQL Editor:
 
 ```sql
-create table flashcard_decks (
+create table study_sets (
   id uuid primary key default gen_random_uuid(),
   title text not null,
+  mode text not null check (mode in ('flashcards', 'quiz', 'summary')),
+  content jsonb not null,
   created_at timestamptz default now()
 );
 
-create table flashcards (
-  id uuid primary key default gen_random_uuid(),
-  deck_id uuid references flashcard_decks(id) on delete cascade,
-  front text not null,
-  back text not null,
-  hint text
-);
+-- The app saves from the browser with the anon key, so allow it to insert and read rows
+alter table study_sets enable row level security;
 
-create table quizzes (
-  id uuid primary key default gen_random_uuid(),
-  title text not null,
-  created_at timestamptz default now()
-);
+create policy "Allow anon inserts" on study_sets
+  for insert to anon with check (true);
 
-create table quiz_questions (
-  id uuid primary key default gen_random_uuid(),
-  quiz_id uuid references quizzes(id) on delete cascade,
-  question text not null,
-  options jsonb not null,
-  correct_answer_index int not null,
-  explanation text
-);
-
-create table summaries (
-  id uuid primary key default gen_random_uuid(),
-  title text not null,
-  overview text,
-  key_takeaways jsonb default '[]',
-  key_terms jsonb default '[]',
-  created_at timestamptz default now()
-);
+create policy "Allow anon reads" on study_sets
+  for select to anon using (true);
 ```
+
+> **Note:** These policies let anyone with your site's anon key read and add study sets. That's fine for a personal project; add Supabase Auth and per-user policies before sharing it publicly.
 
 ### 5. Run the development server
 ```bash
@@ -100,11 +83,11 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 src/
 ├── app/
 │   ├── api/
-│   │   ├── generate-deck/route.ts   # Sends text to OpenAI, returns flashcards / quiz / summary
+│   │   ├── generate-deck/route.ts   # Sends text to OpenAI, returns flashcards / quiz / study guide
 │   │   ├── parse-file/route.ts      # Extracts text from uploaded PDF, PPTX, or TXT files
-│   │   └── save-deck/route.ts       # Saves generated study sets to Supabase
+│   │   └── save-deck/route.ts       # Alternative save endpoint (not used by the current UI)
 │   ├── layout.tsx
-│   ├── page.tsx                     # Main UI: upload, flashcards, quiz, summary views
+│   ├── page.tsx                     # Main UI: upload, flashcards, quiz, study guide views; saves to study_sets
 │   └── globals.css
 └── lib/
     └── supabase.ts                  # Supabase client

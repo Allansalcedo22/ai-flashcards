@@ -21,6 +21,8 @@ type AppMode = 'flashcards' | 'quiz' | 'summary';
 interface Flashcard {
   front: string;
   back: string;
+  explanation?: string;
+  example?: string;
   hint?: string;
 }
 
@@ -29,13 +31,46 @@ interface QuizQuestion {
   question: string;
   options: string[];
   correctAnswerIndex: number;
+  difficulty?: 'recall' | 'application' | 'analysis';
+  concept?: string;
   explanation: string;
+  optionExplanations?: string[];
+}
+
+interface StudySection {
+  heading: string;
+  explanation: string;
+  keyPoints?: string[];
+  example?: string;
+  misconceptions?: string[];
 }
 
 interface SummaryData {
   overview: string;
+  learningObjectives?: string[];
+  sections?: StudySection[];
+  keyTerms: { term: string; definition: string; example?: string }[];
+  connections?: string;
   keyTakeaways: string[];
-  keyTerms: { term: string; definition: string }[];
+  reviewQuestions?: { question: string; answer: string }[];
+}
+
+const DIFFICULTY_STYLES: Record<string, string> = {
+  recall: 'bg-sky-950/60 text-sky-300 border-sky-800/60',
+  application: 'bg-violet-950/60 text-violet-300 border-violet-800/60',
+  analysis: 'bg-amber-950/60 text-amber-300 border-amber-800/60',
+};
+
+// Splits AI text on blank lines so long explanations render as real paragraphs
+function Paragraphs({ text, className = '' }: { text?: string; className?: string }) {
+  if (!text) return null;
+  return (
+    <div className={`space-y-3 ${className}`}>
+      {text.split(/\n\s*\n/).map((para, idx) => (
+        <p key={idx}>{para.trim()}</p>
+      ))}
+    </div>
+  );
 }
 
 export default function Home() {
@@ -64,6 +99,9 @@ export default function Home() {
   // Quiz User Responses State
   const [userAnswers, setUserAnswers] = useState<Record<number, number>>({});
   const [showQuizResults, setShowQuizResults] = useState(false);
+
+  // Study Guide: which review-question answers are revealed
+  const [revealedAnswers, setRevealedAnswers] = useState<Record<number, boolean>>({});
 
   // Handle File Upload & Parsing
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -129,6 +167,7 @@ export default function Home() {
         setShowQuizResults(false);
       } else if (mode === 'summary' && result.data) {
         setSummaryData(result.data);
+        setRevealedAnswers({});
       }
     } catch (err: any) {
       alert(err.message || 'An error occurred during generation.');
@@ -172,6 +211,15 @@ export default function Home() {
     return correct;
   };
 
+  // Concepts behind missed questions, so students know what to review
+  const getMissedConcepts = () => {
+    const missed = quizQuestions
+      .filter((q, idx) => userAnswers[idx] !== q.correctAnswerIndex)
+      .map((q) => q.concept)
+      .filter((c): c is string => Boolean(c));
+    return Array.from(new Set(missed));
+  };
+
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-12 max-w-5xl mx-auto">
       {/* Header */}
@@ -180,7 +228,7 @@ export default function Home() {
           <Sparkles className="w-8 h-8 text-blue-500" /> AI Study Assistant
         </h1>
         <p className="text-slate-400 mt-1">
-          Upload lecture notes, PDFs, or PowerPoints to generate flashcards, practice quizzes, or summaries.
+          Upload lecture notes, PDFs, or PowerPoints to generate in-depth flashcards, practice quizzes, and full study guides.
         </p>
       </header>
 
@@ -208,7 +256,7 @@ export default function Home() {
             mode === 'summary' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
           }`}
         >
-          <FileText className="w-4 h-4" /> Summary
+          <FileText className="w-4 h-4" /> Study Guide
         </button>
       </div>
 
@@ -305,11 +353,11 @@ export default function Home() {
         >
           {isGenerating ? (
             <>
-              <RotateCw className="w-4 h-4 animate-spin" /> Generating {mode}...
+              <RotateCw className="w-4 h-4 animate-spin" /> Generating {mode === 'summary' ? 'study guide' : mode}... (in-depth content can take up to a minute)
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4" /> Generate {mode === 'flashcards' ? 'Flashcards' : mode === 'quiz' ? `Quiz (${questionCount} Qs)` : 'Summary'}
+              <Sparkles className="w-4 h-4" /> Generate {mode === 'flashcards' ? 'Flashcards' : mode === 'quiz' ? `Quiz (${questionCount} Qs)` : 'Study Guide'}
             </>
           )}
         </button>
@@ -338,11 +386,35 @@ export default function Home() {
             <span className="absolute top-4 left-4 text-xs font-semibold text-slate-500 uppercase tracking-widest">
               {isFlipped ? 'Answer / Definition' : 'Prompt / Question'}
             </span>
-            <p className="text-lg md:text-xl font-medium text-slate-100 max-w-xl">
+            <p className="text-lg md:text-xl font-medium text-slate-100 max-w-xl mt-6">
               {isFlipped
                 ? flashcards[currentCardIndex].back
                 : flashcards[currentCardIndex].front}
             </p>
+            {isFlipped && (flashcards[currentCardIndex].explanation || flashcards[currentCardIndex].example) && (
+              <div className="mt-6 mb-6 w-full max-w-2xl text-left space-y-3">
+                {flashcards[currentCardIndex].explanation && (
+                  <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                    <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider block mb-1">
+                      Why it works
+                    </span>
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                      {flashcards[currentCardIndex].explanation}
+                    </p>
+                  </div>
+                )}
+                {flashcards[currentCardIndex].example && (
+                  <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                    <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider block mb-1">
+                      Example
+                    </span>
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                      {flashcards[currentCardIndex].example}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
             {!isFlipped && flashcards[currentCardIndex].hint && (
               <p className="mt-4 text-xs text-blue-400 bg-blue-950/50 px-3 py-1 rounded-full border border-blue-800/50">
                 Hint: {flashcards[currentCardIndex].hint}
@@ -398,6 +470,20 @@ export default function Home() {
           <div className="space-y-6">
             {quizQuestions.map((q, qIdx) => (
               <div key={q.id || qIdx} className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
+                {(q.difficulty || q.concept) && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {q.difficulty && (
+                      <span
+                        className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                          DIFFICULTY_STYLES[q.difficulty] || 'bg-slate-800 text-slate-300 border-slate-700'
+                        }`}
+                      >
+                        {q.difficulty}
+                      </span>
+                    )}
+                    {q.concept && <span className="text-xs text-slate-500">{q.concept}</span>}
+                  </div>
+                )}
                 <p className="font-medium text-slate-100">
                   {qIdx + 1}. {q.question}
                 </p>
@@ -432,10 +518,38 @@ export default function Home() {
                   })}
                 </div>
 
-                {showQuizResults && q.explanation && (
-                  <p className="text-xs text-slate-400 bg-slate-950 p-3 rounded-lg border border-slate-800/80">
-                    <span className="font-semibold text-slate-300">Explanation:</span> {q.explanation}
-                  </p>
+                {showQuizResults && (q.explanation || q.optionExplanations?.length) && (
+                  <div className="bg-slate-950 p-4 rounded-lg border border-slate-800/80 space-y-3">
+                    {q.explanation && (
+                      <div>
+                        <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider block mb-1">
+                          Explanation
+                        </span>
+                        <p className="text-sm text-slate-300 leading-relaxed">{q.explanation}</p>
+                      </div>
+                    )}
+                    {q.optionExplanations && q.optionExplanations.length > 0 && (
+                      <div>
+                        <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider block mb-1">
+                          Breaking down each option
+                        </span>
+                        <ul className="space-y-1.5">
+                          {q.optionExplanations.map((why, optIdx) => (
+                            <li key={optIdx} className="text-xs text-slate-400 leading-relaxed flex gap-2">
+                              <span
+                                className={`font-semibold shrink-0 ${
+                                  optIdx === q.correctAnswerIndex ? 'text-emerald-400' : 'text-rose-400'
+                                }`}
+                              >
+                                {String.fromCharCode(65 + optIdx)}.
+                              </span>
+                              <span>{why}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             ))}
@@ -454,6 +568,23 @@ export default function Home() {
               <p className="text-2xl font-black text-emerald-400">
                 {calculateQuizScore()} / {quizQuestions.length} ({Math.round((calculateQuizScore() / quizQuestions.length) * 100)}%)
               </p>
+              {getMissedConcepts().length > 0 && (
+                <div className="pt-3 text-left">
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+                    Concepts to review
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {getMissedConcepts().map((concept) => (
+                      <span
+                        key={concept}
+                        className="text-xs text-rose-200 bg-rose-950/50 border border-rose-800/50 px-2.5 py-1 rounded-full"
+                      >
+                        {concept}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -463,23 +594,102 @@ export default function Home() {
       {mode === 'summary' && summaryData && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">Study Summary Notes</h2>
+            <h2 className="text-xl font-bold text-white">Study Guide</h2>
             <button
               onClick={handleSaveToSupabase}
               disabled={isSaving}
               className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700"
             >
-              <Save className="w-3.5 h-3.5" /> {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Summary'}
+              <Save className="w-3.5 h-3.5" /> {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Study Guide'}
             </button>
           </div>
 
+          {/* Overview & Learning Objectives */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6">
             <div>
               <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-2">
                 Overview
               </h3>
-              <p className="text-slate-300 leading-relaxed text-sm">{summaryData.overview}</p>
+              <Paragraphs text={summaryData.overview} className="text-slate-300 leading-relaxed text-sm" />
             </div>
+
+            {summaryData.learningObjectives && summaryData.learningObjectives.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-2">
+                  After studying this, you should be able to
+                </h3>
+                <ul className="space-y-1.5 text-sm text-slate-300">
+                  {summaryData.learningObjectives.map((obj, idx) => (
+                    <li key={idx} className="flex gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                      <span>{obj}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Concept Sections */}
+          {summaryData.sections?.map((section, sIdx) => (
+            <div key={sIdx} className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-5">
+              <h3 className="text-lg font-bold text-white">
+                <span className="text-blue-500 mr-2">{sIdx + 1}.</span>
+                {section.heading}
+              </h3>
+
+              <Paragraphs text={section.explanation} className="text-slate-300 leading-relaxed text-sm" />
+
+              {section.keyPoints && section.keyPoints.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2">
+                    Key Points
+                  </h4>
+                  <ul className="list-disc list-inside space-y-1.5 text-sm text-slate-300">
+                    {section.keyPoints.map((point, idx) => (
+                      <li key={idx}>{point}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {section.example && (
+                <div className="bg-emerald-950/30 border border-emerald-800/40 p-4 rounded-lg">
+                  <h4 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1">
+                    Example
+                  </h4>
+                  <Paragraphs text={section.example} className="text-sm text-slate-300 leading-relaxed" />
+                </div>
+              )}
+
+              {section.misconceptions && section.misconceptions.length > 0 && (
+                <div className="bg-rose-950/30 border border-rose-800/40 p-4 rounded-lg">
+                  <h4 className="text-xs font-semibold text-rose-400 uppercase tracking-wider mb-2">
+                    Common Misconceptions
+                  </h4>
+                  <ul className="space-y-1.5 text-sm text-slate-300">
+                    {section.misconceptions.map((m, idx) => (
+                      <li key={idx} className="flex gap-2">
+                        <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                        <span>{m}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Connections, Takeaways, Terms */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6">
+            {summaryData.connections && (
+              <div>
+                <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-2">
+                  How It All Connects
+                </h3>
+                <Paragraphs text={summaryData.connections} className="text-slate-300 leading-relaxed text-sm" />
+              </div>
+            )}
 
             {summaryData.keyTakeaways?.length > 0 && (
               <div>
@@ -505,13 +715,49 @@ export default function Home() {
                       <span className="font-semibold text-slate-100 text-sm block mb-1">
                         {kt.term}
                       </span>
-                      <span className="text-xs text-slate-400 leading-normal">{kt.definition}</span>
+                      <span className="text-xs text-slate-400 leading-normal block">{kt.definition}</span>
+                      {kt.example && (
+                        <span className="text-xs text-slate-500 italic leading-normal block mt-1.5">
+                          e.g. {kt.example}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
           </div>
+
+          {/* Self-Check Review Questions */}
+          {summaryData.reviewQuestions && summaryData.reviewQuestions.length > 0 && (
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider">
+                  Check Your Understanding
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Try answering each question in your own words before revealing the model answer.
+                </p>
+              </div>
+              {summaryData.reviewQuestions.map((rq, idx) => (
+                <div key={idx} className="bg-slate-950 border border-slate-800 rounded-lg p-4 space-y-3">
+                  <p className="text-sm font-medium text-slate-100">
+                    {idx + 1}. {rq.question}
+                  </p>
+                  {revealedAnswers[idx] ? (
+                    <Paragraphs text={rq.answer} className="text-sm text-slate-300 leading-relaxed border-l-2 border-blue-500 pl-3" />
+                  ) : (
+                    <button
+                      onClick={() => setRevealedAnswers({ ...revealedAnswers, [idx]: true })}
+                      className="text-xs font-medium text-blue-400 hover:text-blue-300"
+                    >
+                      Show answer
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </main>
