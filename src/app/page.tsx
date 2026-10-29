@@ -367,13 +367,13 @@ export default function Home() {
       {mode === 'flashcards' && flashcards.length > 0 && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">
+            <h2 className="text-2xl font-bold text-white">
               Flashcard Deck ({flashcards.length} cards)
             </h2>
             <button
               onClick={handleSaveToSupabase}
               disabled={isSaving}
-              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700"
+              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-700"
             >
               <Save className="w-3.5 h-3.5" /> {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Set'}
             </button>
@@ -383,10 +383,10 @@ export default function Home() {
             onClick={() => setIsFlipped(!isFlipped)}
             className="cursor-pointer min-h-[260px] bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-8 flex flex-col items-center justify-center text-center transition-all shadow-xl relative"
           >
-            <span className="absolute top-4 left-4 text-xs font-semibold text-slate-500 uppercase tracking-widest">
+            <span className="absolute top-4 left-4 text-sm font-semibold text-slate-500 uppercase tracking-widest">
               {isFlipped ? 'Answer / Definition' : 'Prompt / Question'}
             </span>
-            <p className="text-lg md:text-xl font-medium text-slate-100 max-w-xl mt-6">
+            <p className="text-xl md:text-2xl font-medium text-slate-100 max-w-xl mt-6">
               {isFlipped
                 ? flashcards[currentCardIndex].back
                 : flashcards[currentCardIndex].front}
@@ -395,20 +395,20 @@ export default function Home() {
               <div className="mt-6 mb-6 w-full max-w-2xl text-left space-y-3">
                 {flashcards[currentCardIndex].explanation && (
                   <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                    <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider block mb-1">
+                    <span className="text-sm font-semibold text-blue-400 uppercase tracking-wider block mb-1">
                       Why it works
                     </span>
-                    <p className="text-sm text-slate-300 leading-relaxed">
+                    <p className="text-base text-slate-300 leading-relaxed">
                       {flashcards[currentCardIndex].explanation}
                     </p>
                   </div>
                 )}
                 {flashcards[currentCardIndex].example && (
                   <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                    <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider block mb-1">
+                    <span className="text-sm font-semibold text-emerald-400 uppercase tracking-wider block mb-1">
                       Example
                     </span>
-                    <p className="text-sm text-slate-300 leading-relaxed">
+                    <p className="text-base text-slate-300 leading-relaxed">
                       {flashcards[currentCardIndex].example}
                     </p>
                   </div>
@@ -416,11 +416,11 @@ export default function Home() {
               </div>
             )}
             {!isFlipped && flashcards[currentCardIndex].hint && (
-              <p className="mt-4 text-xs text-blue-400 bg-blue-950/50 px-3 py-1 rounded-full border border-blue-800/50">
+              <p className="mt-4 text-sm text-blue-400 bg-blue-950/50 px-3 py-1 rounded-full border border-blue-800/50">
                 Hint: {flashcards[currentCardIndex].hint}
               </p>
             )}
-            <span className="absolute bottom-4 text-xs text-slate-500">Click card to flip</span>
+            <span className="absolute bottom-4 text-sm text-slate-500">Click card to flip</span>
           </div>
 
           <div className="flex items-center justify-between">
@@ -434,7 +434,7 @@ export default function Home() {
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <span className="text-sm font-medium text-slate-400">
+            <span className="text-base font-medium text-slate-400">
               {currentCardIndex + 1} of {flashcards.length}
             </span>
             <button
@@ -455,13 +455,13 @@ export default function Home() {
       {mode === 'quiz' && quizQuestions.length > 0 && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">
+            <h2 className="text-2xl font-bold text-white">
               {quizTitle} ({quizQuestions.length} Questions)
             </h2>
             <button
               onClick={handleSaveToSupabase}
               disabled={isSaving}
-              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700"
+              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-700"
             >
               <Save className="w-3.5 h-3.5" /> {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Quiz'}
             </button>
@@ -474,14 +474,14 @@ export default function Home() {
                   <div className="flex flex-wrap items-center gap-2">
                     {q.difficulty && (
                       <span
-                        className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                        className={`text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
                           DIFFICULTY_STYLES[q.difficulty] || 'bg-slate-800 text-slate-300 border-slate-700'
                         }`}
                       >
                         {q.difficulty}
                       </span>
                     )}
-                    {q.concept && <span className="text-xs text-slate-500">{q.concept}</span>}
+                    {q.concept && <span className="text-sm text-slate-500">{q.concept}</span>}
                   </div>
                 )}
                 <p className="font-medium text-slate-100">
@@ -508,7 +508,7 @@ export default function Home() {
                         key={optIdx}
                         disabled={showQuizResults}
                         onClick={() => setUserAnswers({ ...userAnswers, [qIdx]: optIdx })}
-                        className={`text-left p-3 rounded-lg text-sm border transition-all flex items-center justify-between ${btnStyle}`}
+                        className={`text-left p-3 rounded-lg text-base border transition-all flex items-center justify-between ${btnStyle}`}
                       >
                         <span>{opt}</span>
                         {showQuizResults && isCorrect && <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />}
@@ -522,20 +522,20 @@ export default function Home() {
                   <div className="bg-slate-950 p-4 rounded-lg border border-slate-800/80 space-y-3">
                     {q.explanation && (
                       <div>
-                        <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider block mb-1">
+                        <span className="text-sm font-semibold text-blue-400 uppercase tracking-wider block mb-1">
                           Explanation
                         </span>
-                        <p className="text-sm text-slate-300 leading-relaxed">{q.explanation}</p>
+                        <p className="text-base text-slate-300 leading-relaxed">{q.explanation}</p>
                       </div>
                     )}
                     {q.optionExplanations && q.optionExplanations.length > 0 && (
                       <div>
-                        <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider block mb-1">
+                        <span className="text-sm font-semibold text-blue-400 uppercase tracking-wider block mb-1">
                           Breaking down each option
                         </span>
                         <ul className="space-y-1.5">
                           {q.optionExplanations.map((why, optIdx) => (
-                            <li key={optIdx} className="text-xs text-slate-400 leading-relaxed flex gap-2">
+                            <li key={optIdx} className="text-sm text-slate-400 leading-relaxed flex gap-2">
                               <span
                                 className={`font-semibold shrink-0 ${
                                   optIdx === q.correctAnswerIndex ? 'text-emerald-400' : 'text-rose-400'
@@ -564,20 +564,20 @@ export default function Home() {
             </button>
           ) : (
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 text-center space-y-2">
-              <h3 className="text-lg font-bold text-white">Quiz Score</h3>
+              <h3 className="text-xl font-bold text-white">Quiz Score</h3>
               <p className="text-2xl font-black text-emerald-400">
                 {calculateQuizScore()} / {quizQuestions.length} ({Math.round((calculateQuizScore() / quizQuestions.length) * 100)}%)
               </p>
               {getMissedConcepts().length > 0 && (
                 <div className="pt-3 text-left">
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+                  <span className="text-sm font-semibold text-slate-400 uppercase tracking-wider block mb-2">
                     Concepts to review
                   </span>
                   <div className="flex flex-wrap gap-2">
                     {getMissedConcepts().map((concept) => (
                       <span
                         key={concept}
-                        className="text-xs text-rose-200 bg-rose-950/50 border border-rose-800/50 px-2.5 py-1 rounded-full"
+                        className="text-sm text-rose-200 bg-rose-950/50 border border-rose-800/50 px-2.5 py-1 rounded-full"
                       >
                         {concept}
                       </span>
@@ -594,11 +594,11 @@ export default function Home() {
       {mode === 'summary' && summaryData && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">Study Guide</h2>
+            <h2 className="text-2xl font-bold text-white">Study Guide</h2>
             <button
               onClick={handleSaveToSupabase}
               disabled={isSaving}
-              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700"
+              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-700"
             >
               <Save className="w-3.5 h-3.5" /> {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Study Guide'}
             </button>
@@ -607,18 +607,18 @@ export default function Home() {
           {/* Overview & Learning Objectives */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6">
             <div>
-              <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-2">
+              <h3 className="text-base font-semibold text-blue-400 uppercase tracking-wider mb-2">
                 Overview
               </h3>
-              <Paragraphs text={summaryData.overview} className="text-slate-300 leading-relaxed text-sm" />
+              <Paragraphs text={summaryData.overview} className="text-slate-300 leading-relaxed text-base" />
             </div>
 
             {summaryData.learningObjectives && summaryData.learningObjectives.length > 0 && (
               <div>
-                <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-2">
+                <h3 className="text-base font-semibold text-blue-400 uppercase tracking-wider mb-2">
                   After studying this, you should be able to
                 </h3>
-                <ul className="space-y-1.5 text-sm text-slate-300">
+                <ul className="space-y-1.5 text-base text-slate-300">
                   {summaryData.learningObjectives.map((obj, idx) => (
                     <li key={idx} className="flex gap-2">
                       <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
@@ -633,19 +633,19 @@ export default function Home() {
           {/* Concept Sections */}
           {summaryData.sections?.map((section, sIdx) => (
             <div key={sIdx} className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-5">
-              <h3 className="text-lg font-bold text-white">
+              <h3 className="text-xl font-bold text-white">
                 <span className="text-blue-500 mr-2">{sIdx + 1}.</span>
                 {section.heading}
               </h3>
 
-              <Paragraphs text={section.explanation} className="text-slate-300 leading-relaxed text-sm" />
+              <Paragraphs text={section.explanation} className="text-slate-300 leading-relaxed text-base" />
 
               {section.keyPoints && section.keyPoints.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2">
+                  <h4 className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-2">
                     Key Points
                   </h4>
-                  <ul className="list-disc list-inside space-y-1.5 text-sm text-slate-300">
+                  <ul className="list-disc list-inside space-y-1.5 text-base text-slate-300">
                     {section.keyPoints.map((point, idx) => (
                       <li key={idx}>{point}</li>
                     ))}
@@ -655,19 +655,19 @@ export default function Home() {
 
               {section.example && (
                 <div className="bg-emerald-950/30 border border-emerald-800/40 p-4 rounded-lg">
-                  <h4 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1">
+                  <h4 className="text-sm font-semibold text-emerald-400 uppercase tracking-wider mb-1">
                     Example
                   </h4>
-                  <Paragraphs text={section.example} className="text-sm text-slate-300 leading-relaxed" />
+                  <Paragraphs text={section.example} className="text-base text-slate-300 leading-relaxed" />
                 </div>
               )}
 
               {section.misconceptions && section.misconceptions.length > 0 && (
                 <div className="bg-rose-950/30 border border-rose-800/40 p-4 rounded-lg">
-                  <h4 className="text-xs font-semibold text-rose-400 uppercase tracking-wider mb-2">
+                  <h4 className="text-sm font-semibold text-rose-400 uppercase tracking-wider mb-2">
                     Common Misconceptions
                   </h4>
-                  <ul className="space-y-1.5 text-sm text-slate-300">
+                  <ul className="space-y-1.5 text-base text-slate-300">
                     {section.misconceptions.map((m, idx) => (
                       <li key={idx} className="flex gap-2">
                         <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
@@ -684,19 +684,19 @@ export default function Home() {
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6">
             {summaryData.connections && (
               <div>
-                <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-2">
+                <h3 className="text-base font-semibold text-blue-400 uppercase tracking-wider mb-2">
                   How It All Connects
                 </h3>
-                <Paragraphs text={summaryData.connections} className="text-slate-300 leading-relaxed text-sm" />
+                <Paragraphs text={summaryData.connections} className="text-slate-300 leading-relaxed text-base" />
               </div>
             )}
 
             {summaryData.keyTakeaways?.length > 0 && (
               <div>
-                <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-2">
+                <h3 className="text-base font-semibold text-blue-400 uppercase tracking-wider mb-2">
                   Key Takeaways
                 </h3>
-                <ul className="list-disc list-inside space-y-1.5 text-sm text-slate-300">
+                <ul className="list-disc list-inside space-y-1.5 text-base text-slate-300">
                   {summaryData.keyTakeaways.map((item, idx) => (
                     <li key={idx}>{item}</li>
                   ))}
@@ -706,18 +706,18 @@ export default function Home() {
 
             {summaryData.keyTerms?.length > 0 && (
               <div>
-                <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-3">
+                <h3 className="text-base font-semibold text-blue-400 uppercase tracking-wider mb-3">
                   Key Terms & Definitions
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {summaryData.keyTerms.map((kt, idx) => (
                     <div key={idx} className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-                      <span className="font-semibold text-slate-100 text-sm block mb-1">
+                      <span className="font-semibold text-slate-100 text-base block mb-1">
                         {kt.term}
                       </span>
-                      <span className="text-xs text-slate-400 leading-normal block">{kt.definition}</span>
+                      <span className="text-sm text-slate-400 leading-normal block">{kt.definition}</span>
                       {kt.example && (
-                        <span className="text-xs text-slate-500 italic leading-normal block mt-1.5">
+                        <span className="text-sm text-slate-500 italic leading-normal block mt-1.5">
                           e.g. {kt.example}
                         </span>
                       )}
@@ -732,24 +732,24 @@ export default function Home() {
           {summaryData.reviewQuestions && summaryData.reviewQuestions.length > 0 && (
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
               <div>
-                <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider">
+                <h3 className="text-base font-semibold text-blue-400 uppercase tracking-wider">
                   Check Your Understanding
                 </h3>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-sm text-slate-500 mt-1">
                   Try answering each question in your own words before revealing the model answer.
                 </p>
               </div>
               {summaryData.reviewQuestions.map((rq, idx) => (
                 <div key={idx} className="bg-slate-950 border border-slate-800 rounded-lg p-4 space-y-3">
-                  <p className="text-sm font-medium text-slate-100">
+                  <p className="text-base font-medium text-slate-100">
                     {idx + 1}. {rq.question}
                   </p>
                   {revealedAnswers[idx] ? (
-                    <Paragraphs text={rq.answer} className="text-sm text-slate-300 leading-relaxed border-l-2 border-blue-500 pl-3" />
+                    <Paragraphs text={rq.answer} className="text-base text-slate-300 leading-relaxed border-l-2 border-blue-500 pl-3" />
                   ) : (
                     <button
                       onClick={() => setRevealedAnswers({ ...revealedAnswers, [idx]: true })}
-                      className="text-xs font-medium text-blue-400 hover:text-blue-300"
+                      className="text-sm font-medium text-blue-400 hover:text-blue-300"
                     >
                       Show answer
                     </button>
