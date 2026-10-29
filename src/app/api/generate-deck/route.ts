@@ -10,7 +10,8 @@ const TEACHING_GUIDELINES = `Teaching guidelines:
 - Write in clear, friendly language a motivated student can follow. Define jargon the first time it appears.
 - Use concrete examples, analogies, and real-world applications.
 - Point out common mistakes and misconceptions students have about the topic.
-- Cover ALL major concepts in the material, not just the first few.`;
+- Cover ALL major concepts in the material, not just the first few.
+- The material may contain several documents, each starting with "=== Document: <name> ===". Treat them as one combined study set: cover every document fairly, and connect related ideas across documents instead of repeating them.`;
 
 export async function POST(req: Request) {
   try {

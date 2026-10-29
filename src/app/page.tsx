@@ -12,7 +12,8 @@ import {
   CheckCircle2, 
   XCircle,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  X
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -73,12 +74,18 @@ function Paragraphs({ text, className = '' }: { text?: string; className?: strin
   );
 }
 
+// Each file is uploaded in its own request, so keep it under typical hosting body limits (e.g. Vercel's 4.5 MB)
+const MAX_FILE_SIZE_MB = 4;
+// gpt-4o-mini reads ~128k tokens; ~4 characters per token leaves room for the prompt and the answer
+const MAX_TOTAL_CHARS = 400_000;
+
 export default function Home() {
   const [mode, setMode] = useState<AppMode>('flashcards');
   const [title, setTitle] = useState('');
   const [inputText, setInputText] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadedFileNames, setUploadedFileNames] = useState<string[]>([]);
   const [isParsingFile, setIsParsingFile] = useState(false);
+  const [parsingProgress, setParsingProgress] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -103,38 +110,76 @@ export default function Home() {
   // Study Guide: which review-question answers are revealed
   const [revealedAnswers, setRevealedAnswers] = useState<Record<number, boolean>>({});
 
-  // Handle File Upload & Parsing
+  // Handle File Upload & Parsing (several files are combined into one study set)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    // Reset so picking the same file again still triggers onChange
+    e.target.value = '';
+    if (files.length === 0) return;
 
-    setSelectedFile(file);
+    const tooLarge = files.filter((f) => f.size > MAX_FILE_SIZE_MB * 1024 * 1024);
+    const validFiles = files.filter((f) => f.size <= MAX_FILE_SIZE_MB * 1024 * 1024);
+
     setIsParsingFile(true);
 
-    const formData = new FormData();
-    formData.append('file', file);
+    const parsedSections: string[] = [];
+    const parsedNames: string[] = [];
+    const failed: string[] = tooLarge.map((f) => `${f.name} (over ${MAX_FILE_SIZE_MB} MB)`);
 
-    try {
-      const res = await fetch('/api/parse-file', {
-        method: 'POST',
-        body: formData,
-      });
+    // Parse one at a time so each request stays small and documents keep their order
+    for (const [idx, file] of validFiles.entries()) {
+      setParsingProgress(`Parsing ${idx + 1} of ${validFiles.length}...`);
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to parse file.');
+      const formData = new FormData();
+      formData.append('file', file);
 
-      setInputText(data.text);
-    } catch (err: any) {
-      alert(err.message || 'Error parsing file.');
-    } finally {
-      setIsParsingFile(false);
+      try {
+        const res = await fetch('/api/parse-file', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to parse file.');
+
+        // Label each document so the AI knows where one ends and the next begins
+        parsedSections.push(`=== Document: ${file.name} ===\n${data.text.trim()}`);
+        parsedNames.push(file.name);
+      } catch (err: any) {
+        failed.push(`${file.name} (${err.message || 'could not be read'})`);
+      }
     }
+
+    if (parsedSections.length > 0) {
+      // Add to what's already in the box instead of replacing it
+      setInputText((prev) => [prev.trim(), ...parsedSections].filter(Boolean).join('\n\n'));
+      setUploadedFileNames((prev) => [...prev, ...parsedNames]);
+    }
+
+    if (failed.length > 0) {
+      alert(`These files were skipped:\n\n${failed.join('\n')}`);
+    }
+
+    setParsingProgress('');
+    setIsParsingFile(false);
+  };
+
+  const handleClearFiles = () => {
+    setUploadedFileNames([]);
+    setInputText('');
   };
 
   // Handle Study Material Generation
   const handleGenerate = async () => {
     if (!inputText.trim()) {
       alert('Please enter text or upload a file first.');
+      return;
+    }
+
+    if (inputText.length > MAX_TOTAL_CHARS) {
+      alert(
+        `That's too much material for one study set (${inputText.length.toLocaleString()} characters; the limit is about ${MAX_TOTAL_CHARS.toLocaleString()}). Try fewer or smaller documents.`
+      );
       return;
     }
 
@@ -278,24 +323,46 @@ export default function Home() {
         {/* File Upload Section */}
         <div>
           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-            Upload File (.pdf, .pptx, .txt)
+            Upload Files (.pdf, .pptx, .txt)
           </label>
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors border border-slate-700">
               <Upload className="w-4 h-4" />
-              <span>{isParsingFile ? 'Parsing File...' : 'Choose File'}</span>
+              <span>{isParsingFile ? parsingProgress || 'Parsing...' : 'Choose Files'}</span>
               <input
                 type="file"
                 accept=".pdf,.pptx,.txt"
+                multiple
                 onChange={handleFileUpload}
                 disabled={isParsingFile}
                 className="hidden"
               />
             </label>
-            {selectedFile && (
-              <span className="text-xs text-slate-400 truncate max-w-xs">{selectedFile.name}</span>
-            )}
+            <span className="text-xs text-slate-500">
+              Pick several at once, or add more later. Max {MAX_FILE_SIZE_MB} MB each.
+            </span>
           </div>
+
+          {uploadedFileNames.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {uploadedFileNames.map((name, idx) => (
+                <span
+                  key={`${name}-${idx}`}
+                  className="text-xs text-slate-300 bg-slate-950 border border-slate-800 px-2.5 py-1 rounded-full truncate max-w-xs"
+                >
+                  {name}
+                </span>
+              ))}
+              <button
+                type="button"
+                onClick={handleClearFiles}
+                disabled={isParsingFile}
+                className="flex items-center gap-1 text-xs text-slate-400 hover:text-rose-300 px-2 py-1"
+              >
+                <X className="w-3.5 h-3.5" /> Clear all
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Raw Text Input */}
