@@ -42,3 +42,6 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Copied from node_modules by the copy-pdf-worker script
+public/pdf.worker.mjs
