@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "copy-pdf-worker": "node -e \"require('fs').copyFileSync('node_modules/pdf-parse/dist/pdf-parse/web/pdf.worker.mjs','public/pdf.worker.mjs')\"",
+    "postinstall": "npm run copy-pdf-worker",
+    "prebuild": "npm run copy-pdf-worker"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

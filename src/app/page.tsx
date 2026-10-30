@@ -16,6 +16,7 @@ import {
   X
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { parseFileInBrowser } from '@/lib/parseInBrowser';
 
 type AppMode = 'flashcards' | 'quiz' | 'summary';
 
@@ -78,8 +79,11 @@ function Paragraphs({ text, className = '' }: { text?: string; className?: strin
 // Set NEXT_PUBLIC_ENABLE_SAVE=true in .env.local to turn the Save buttons back on.
 const SAVE_ENABLED = process.env.NEXT_PUBLIC_ENABLE_SAVE === 'true';
 
-// Each file is uploaded in its own request, so keep it under typical hosting body limits (e.g. Vercel's 4.5 MB)
-const MAX_FILE_SIZE_MB = 4;
+// Files up to this size are uploaded to the server; bigger ones are read in the browser,
+// since hosts like Vercel reject uploads over 4.5 MB
+const MAX_UPLOAD_SIZE_MB = 4;
+// Hard cap so a huge file can't freeze the visitor's browser
+const MAX_FILE_SIZE_MB = 100;
 // gpt-4o-mini reads ~128k tokens; ~4 characters per token leaves room for the prompt and the answer
 const MAX_TOTAL_CHARS = 400_000;
 
@@ -134,20 +138,27 @@ export default function Home() {
     for (const [idx, file] of validFiles.entries()) {
       setParsingProgress(`Parsing ${idx + 1} of ${validFiles.length}...`);
 
-      const formData = new FormData();
-      formData.append('file', file);
-
       try {
-        const res = await fetch('/api/parse-file', {
-          method: 'POST',
-          body: formData,
-        });
+        let text: string;
 
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to parse file.');
+        if (file.size > MAX_UPLOAD_SIZE_MB * 1024 * 1024) {
+          text = await parseFileInBrowser(file);
+        } else {
+          const formData = new FormData();
+          formData.append('file', file);
+
+          const res = await fetch('/api/parse-file', {
+            method: 'POST',
+            body: formData,
+          });
+
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to parse file.');
+          text = data.text;
+        }
 
         // Label each document so the AI knows where one ends and the next begins
-        parsedSections.push(`=== Document: ${file.name} ===\n${data.text.trim()}`);
+        parsedSections.push(`=== Document: ${file.name} ===\n${text.trim()}`);
         parsedNames.push(file.name);
       } catch (err: unknown) {
         failed.push(`${file.name} (${err instanceof Error ? err.message : 'could not be read'})`);
