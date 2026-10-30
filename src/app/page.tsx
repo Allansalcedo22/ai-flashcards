@@ -556,7 +556,7 @@ export default function Home() {
           <div className="space-y-6">
             {quizQuestions.map((q, qIdx) => (
               <div key={q.id || qIdx} className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
-                {(q.difficulty || q.concept) && (
+                {(q.difficulty || (showQuizResults && q.concept)) && (
                   <div className="flex flex-wrap items-center gap-2">
                     {q.difficulty && (
                       <span
@@ -567,7 +567,8 @@ export default function Home() {
                         {q.difficulty}
                       </span>
                     )}
-                    {q.concept && <span className="text-sm text-slate-500">{q.concept}</span>}
+                    {/* The concept name can give the answer away, so only show it after submitting */}
+                    {showQuizResults && q.concept && <span className="text-sm text-slate-500">{q.concept}</span>}
                   </div>
                 )}
                 <p className="font-medium text-slate-100">
