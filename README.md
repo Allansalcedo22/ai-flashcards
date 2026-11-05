@@ -5,7 +5,7 @@ An AI-powered study platform built with Next.js 16, OpenAI, and Supabase. Upload
 ## 🚀 Features
 
 - 📄 **Multi-Format Document Parsing:** Upload several `.pdf`, `.docx`, `.pptx` (including speaker notes), `.txt`, or `.md` files (up to 100 MB each) at once and combine them into one study set.
-- 🎴 **Interactive Flashcards:** Flip through 15-25 cards with hints, plus a deeper "why it works" explanation and a real-world example on every card.
+- 🎴 **Interactive Flashcards:** Pick 25, 50, or 100 cards, each with a hint, a deeper "why it works" explanation, and a real-world example. Hit "New Cards" for a fresh deck that skips the questions you just studied.
 - 🧪 **Custom Practice Quizzes:** Generate 10-question or 25-question quizzes mixing recall, application, and analysis questions, with a mini-lesson for each answer, a breakdown of why every option is right or wrong, and a list of concepts to review.
 - 📝 **In-Depth Study Guides:** Get learning objectives, multi-paragraph explanations of each concept with examples and common misconceptions, key terms, how the ideas connect, and self-check questions with model answers.
 - 💾 **Database Saving (optional):** Save generated decks, quizzes, and study guides to Supabase. Off by default; see step 4.

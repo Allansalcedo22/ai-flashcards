@@ -86,6 +86,8 @@ const MAX_UPLOAD_SIZE_MB = 4;
 const MAX_FILE_SIZE_MB = 100;
 // gpt-4o-mini reads ~128k tokens; ~4 characters per token leaves room for the prompt and the answer
 const MAX_TOTAL_CHARS = 400_000;
+// Must match ALLOWED_CARD_COUNTS in the generate-deck route
+const CARD_COUNT_OPTIONS = [25, 50, 100];
 
 export default function Home() {
   const [mode, setMode] = useState<AppMode>('flashcards');
@@ -100,6 +102,9 @@ export default function Home() {
 
   // Quiz Settings
   const [questionCount, setQuestionCount] = useState<number>(10);
+
+  // Flashcard Settings
+  const [cardCount, setCardCount] = useState<number>(25);
 
   // Generated Content State
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
@@ -184,8 +189,8 @@ export default function Home() {
     setInputText('');
   };
 
-  // Handle Study Material Generation
-  const handleGenerate = async () => {
+  // Handle Study Material Generation. "refresh" makes a new flashcard deck that skips the current cards.
+  const handleGenerate = async (refresh = false) => {
     if (!inputText.trim()) {
       alert('Please enter text or upload a file first.');
       return;
@@ -210,6 +215,8 @@ export default function Home() {
           text: inputText,
           mode,
           questionCount,
+          cardCount,
+          avoidFronts: refresh ? flashcards.map((card) => card.front) : [],
         }),
       });
 
@@ -394,6 +401,31 @@ export default function Home() {
           />
         </div>
 
+        {/* Flashcard Count Selector */}
+        {mode === 'flashcards' && (
+          <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Number of Cards:
+            </span>
+            <div className="inline-flex rounded-lg bg-slate-950 p-1 border border-slate-800">
+              {CARD_COUNT_OPTIONS.map((count) => (
+                <button
+                  key={count}
+                  type="button"
+                  onClick={() => setCardCount(count)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                    cardCount === count
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {count} Cards
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Quiz Specific Question Count Selector */}
         {mode === 'quiz' && (
           <div className="flex items-center justify-between pt-2 border-t border-slate-800">
@@ -429,17 +461,17 @@ export default function Home() {
 
         {/* Generate Button */}
         <button
-          onClick={handleGenerate}
+          onClick={() => handleGenerate()}
           disabled={isGenerating || isParsingFile}
           className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg"
         >
           {isGenerating ? (
             <>
-              <RotateCw className="w-4 h-4 animate-spin" /> Generating {mode === 'summary' ? 'study guide' : mode}... (in-depth content can take up to a minute)
+              <RotateCw className="w-4 h-4 animate-spin" /> Generating {mode === 'summary' ? 'study guide' : mode === 'flashcards' ? `${cardCount} flashcards` : mode}... (in-depth content can take 1-2 minutes)
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4" /> Generate {mode === 'flashcards' ? 'Flashcards' : mode === 'quiz' ? `Quiz (${questionCount} Qs)` : 'Study Guide'}
+              <Sparkles className="w-4 h-4" /> Generate {mode === 'flashcards' ? `${cardCount} Flashcards` : mode === 'quiz' ? `Quiz (${questionCount} Qs)` : 'Study Guide'}
             </>
           )}
         </button>
@@ -452,15 +484,25 @@ export default function Home() {
             <h2 className="text-2xl font-bold text-white">
               Flashcard Deck ({flashcards.length} cards)
             </h2>
-            {SAVE_ENABLED && (
+            <div className="flex items-center gap-2">
               <button
-                onClick={handleSaveToSupabase}
-                disabled={isSaving}
-                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-700"
+                onClick={() => handleGenerate(true)}
+                disabled={isGenerating || isParsingFile}
+                title="Get a new set of cards that skips the ones you have now"
+                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-700"
               >
-                <Save className="w-3.5 h-3.5" /> {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Set'}
+                <RotateCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} /> {isGenerating ? 'Refreshing...' : 'New Cards'}
               </button>
-            )}
+              {SAVE_ENABLED && (
+                <button
+                  onClick={handleSaveToSupabase}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-700"
+                >
+                  <Save className="w-3.5 h-3.5" /> {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Set'}
+                </button>
+              )}
+            </div>
           </div>
 
           <div

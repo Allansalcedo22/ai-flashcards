@@ -4,8 +4,10 @@ import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// In-depth generations can take up to a minute; give hosts room so they don't cut it off
-export const maxDuration = 120;
+// In-depth generations and big flashcard decks can take a couple of minutes; give hosts room so they don't cut them off
+export const maxDuration = 300;
+// Skip the flashcard top-up round once this much time has passed, so the request finishes well before maxDuration
+const TOP_UP_DEADLINE_MS = 150_000;
 
 // Each generation costs OpenAI credits, so cap how many one visitor can run per hour
 const GENERATIONS_PER_HOUR = 10;
@@ -22,9 +24,57 @@ const TEACHING_GUIDELINES = `Teaching guidelines:
 - Cover ALL major concepts in the material, not just the first few.
 - The material may contain several documents, each starting with "=== Document: <name> ===". Treat them as one combined study set: cover every document fairly, and connect related ideas across documents instead of repeating them.`;
 
+// One reply can only fit about 25 detailed cards, so bigger decks are made in parallel batches of 25
+const CARDS_PER_BATCH = 25;
+// The model usually returns a few cards fewer than asked, so ask for extra and trim to the exact count
+const CARDS_REQUESTED_PER_BATCH = 32;
+const ALLOWED_CARD_COUNTS = [25, 50, 100];
+// Each batch covers different kinds of cards so the batches don't repeat each other
+const CARD_FOCUSES = [
+  'Key terms and definitions: what each important term, person, or idea is.',
+  'Mechanisms and reasoning: "why does...?" and "how does...?" questions about processes and causes.',
+  'Relationships: comparisons, "what is the difference between...?", and cause-and-effect links between concepts.',
+  'Application: real-world scenarios, worked examples, and "what would happen if...?" questions.',
+];
+
+function flashcardPrompt(cardCount: number, focuses: string[]) {
+  return `You are an expert educator creating flashcards that build real understanding.
+
+${TEACHING_GUIDELINES}
+
+Flashcard rules:
+- Create EXACTLY ${cardCount} cards, spread across every major concept in the material.
+- Focus on these kinds of cards:
+${focuses.map((focus) => `  - ${focus}`).join('\n')}
+- Every card must ask something different; never repeat a question in other words.
+- "back" is the direct answer in 1-2 sentences.
+- "explanation" goes deeper in 2-4 sentences: the reasoning, the mechanism, or the context that makes the answer make sense.
+- "example" gives a concrete example, analogy, or real-world application.
+- "hint" nudges the student toward the answer without giving it away.
+
+Return ONLY a JSON object with this exact structure:
+{
+  "title": "Generated Deck Title",
+  "cards": [
+    {
+      "front": "Question or concept",
+      "back": "Direct answer",
+      "explanation": "Deeper explanation of why and how.",
+      "example": "Concrete example or analogy.",
+      "hint": "Short hint"
+    }
+  ]
+}`;
+}
+
+type GeneratedCard = { front?: string; back?: string };
+
+// Lowercase and strip punctuation so near-identical questions count as duplicates
+const normalizeFront = (front: string) => front.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
 export async function POST(req: Request) {
   try {
-    const { title, text, mode = 'flashcards', questionCount = 10 } = await req.json();
+    const { title, text, mode = 'flashcards', questionCount = 10, cardCount = 25, avoidFronts = [] } = await req.json();
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json({ error: 'Source text is required.' }, { status: 400 });
@@ -114,32 +164,8 @@ Return ONLY a JSON object with this exact structure:
   ]
 }`;
     } else {
-      // Default: Flashcards Mode
-      systemPrompt = `You are an expert educator creating flashcards that build real understanding.
-
-${TEACHING_GUIDELINES}
-
-Flashcard rules:
-- Create 15-25 cards that together cover every major concept, term, process, and relationship in the material.
-- Vary the card types: definitions, "why does...?", "how does...?", "what is the difference between...?", and "what would happen if...?" questions.
-- "back" is the direct answer in 1-2 sentences.
-- "explanation" goes deeper in 3-5 sentences: the reasoning, the mechanism, or the context that makes the answer make sense.
-- "example" gives a concrete example, analogy, or real-world application.
-- "hint" nudges the student toward the answer without giving it away.
-
-Return ONLY a JSON object with this exact structure:
-{
-  "title": "Generated Deck Title",
-  "cards": [
-    {
-      "front": "Question or concept",
-      "back": "Direct answer",
-      "explanation": "Deeper explanation of why and how.",
-      "example": "Concrete example or analogy.",
-      "hint": "Short hint"
-    }
-  ]
-}`;
+      // Default: Flashcards Mode, generated in batches (see generateFlashcards)
+      return await generateFlashcards(title, text, cardCount, avoidFronts);
     }
 
     const response = await openai.chat.completions.create({
@@ -171,4 +197,93 @@ Return ONLY a JSON object with this exact structure:
       { status: 500 }
     );
   }
+}
+
+// Asks OpenAI for one batch of cards. Returns no cards (instead of throwing) if the batch fails,
+// so one bad batch doesn't sink the whole deck.
+async function requestCards(title: string, text: string, cardCount: number, focuses: string[], avoidFronts: string[]) {
+  const avoidNote = avoidFronts.length
+    ? `\n\nThe student already has these cards. Do NOT repeat them; ask about other details and angles instead:\n${avoidFronts.map((front) => `- ${front}`).join('\n')}`
+    : '';
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: flashcardPrompt(cardCount, focuses) },
+        { role: 'user', content: `Title: ${title || 'Study Material'}\n\nContent:\n${text}${avoidNote}` },
+      ],
+      response_format: { type: 'json_object' },
+      max_tokens: 16000,
+    });
+    const choice = response.choices[0];
+    if (choice.finish_reason === 'length') return { title: '', cards: [] };
+
+    const data = JSON.parse(choice.message.content || '{}');
+    const cards = Array.isArray(data.cards) ? (data.cards as GeneratedCard[]) : [];
+    return { title: typeof data.title === 'string' ? data.title : '', cards: cards.filter((card) => card.front && card.back) };
+  } catch (error: unknown) {
+    console.error('Flashcard batch error:', error);
+    return { title: '', cards: [] };
+  }
+}
+
+async function generateFlashcards(title: string, text: string, requestedCount: unknown, avoidFronts: unknown) {
+  const startedAt = Date.now();
+  const cardCount = ALLOWED_CARD_COUNTS.includes(Number(requestedCount)) ? Number(requestedCount) : 25;
+  const batchCount = cardCount / CARDS_PER_BATCH;
+
+  // "New Cards" sends the current deck's questions so the new deck asks different ones
+  const previousFronts = Array.isArray(avoidFronts)
+    ? avoidFronts.filter((front): front is string => typeof front === 'string').slice(0, 100).map((front) => front.slice(0, 200))
+    : [];
+
+  // Drops cards whose question was already asked (in the old deck or another batch)
+  const seen = new Set(previousFronts.map(normalizeFront));
+  const keepNew = (cards: GeneratedCard[]) =>
+    cards.filter((card) => {
+      const key = normalizeFront(card.front!);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+  // Split the card focuses evenly: 1 batch gets all four, 2 batches get two each, 4 batches get one each
+  const focusesPerBatch = CARD_FOCUSES.length / batchCount;
+  const batches = await Promise.all(
+    Array.from({ length: batchCount }, (_, i) =>
+      requestCards(title, text, CARDS_REQUESTED_PER_BATCH, CARD_FOCUSES.slice(i * focusesPerBatch, (i + 1) * focusesPerBatch), previousFronts)
+    )
+  );
+  const deckTitle = batches.find((batch) => batch.title)?.title || '';
+  const cardsByBatch = batches.map((batch) => keepNew(batch.cards));
+
+  // Trim evenly so every kind of card is kept: each batch gets an equal share,
+  // then any batch that came up short is filled in from the others' extras
+  const kept = cardsByBatch.map((batchCards) => batchCards.slice(0, CARDS_PER_BATCH));
+  let missing = cardCount - kept.flat().length;
+  cardsByBatch.forEach((batchCards, i) => {
+    const extra = batchCards.slice(CARDS_PER_BATCH, CARDS_PER_BATCH + Math.max(0, missing));
+    kept[i].push(...extra);
+    missing -= extra.length;
+  });
+  const cards = kept.flat();
+
+  // Still short (common with short notes): one more round asking only for the missing cards
+  if (cards.length > 0 && cards.length < cardCount && Date.now() - startedAt < TOP_UP_DEADLINE_MS) {
+    const topUp = await requestCards(title, text, cardCount - cards.length + 8, CARD_FOCUSES, [
+      ...previousFronts,
+      ...cards.map((card) => card.front!),
+    ]);
+    cards.push(...keepNew(topUp.cards).slice(0, cardCount - cards.length));
+  }
+
+  if (cards.length === 0) {
+    return NextResponse.json(
+      { error: 'Failed to generate flashcards. Please try again, or try fewer documents.' },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ success: true, mode: 'flashcards', data: { title: deckTitle, cards } });
 }
